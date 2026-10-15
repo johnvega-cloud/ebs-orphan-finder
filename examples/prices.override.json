@@ -1,0 +1,10 @@
+{
+  "_meta": {
+    "description": "Example override: add regions or replace rates (e.g. negotiated discounts). The eu-west-1 values below are illustrative placeholders, not verified rates: replace them with the rates from https://aws.amazon.com/ebs/pricing/ for each region you use.",
+    "retrieved": "YYYY-MM"
+  },
+  "eu-west-1": {
+    "gp3": {"gb_month": 0.088, "iops_month": 0.0055, "free_iops": 3000, "throughput_month": 0.044, "free_throughput": 125},
+    "gp2": {"gb_month": 0.11}
+  }
+}

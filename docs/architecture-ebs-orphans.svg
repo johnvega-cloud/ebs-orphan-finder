@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 860" width="1400" height="860" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <title>ebs-orphan-finder: scan an AWS Organization for unattached EBS volumes, report cost, plan and apply a safe cleanup</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#232F3E"/>
+    </marker>
+    <marker id="arrowRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#D13212"/>
+    </marker>
+    <style>
+      .t  { fill: #232F3E; }
+      .mu { fill: #545B64; }
+      .mono { font-family: 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 13px; fill: #232F3E; }
+      .solid { stroke: #232F3E; stroke-width: 2.2; fill: none; }
+      .dash  { stroke: #232F3E; stroke-width: 2; fill: none; stroke-dasharray: 7 5; }
+      .red   { stroke: #D13212; stroke-width: 2.2; fill: none; }
+      .step { fill: #FFFFFF; font-size: 13px; font-weight: 700; }
+    </style>
+  </defs>
+
+  <!-- White canvas so the diagram stays legible on GitHub dark mode -->
+  <rect width="1400" height="860" fill="#FFFFFF"/>
+
+  <text x="30" y="42" class="t" font-size="26" font-weight="700">ebs-orphan-finder: unattached EBS volumes across an AWS Organization</text>
+  <text x="30" y="68" class="mu" font-size="14">Scan is read-only. Deletion only happens from a reviewed plan file, after every volume is re-checked against the live API.</text>
+
+  <!-- ===== Management / tooling account ===== -->
+  <rect x="30" y="100" width="420" height="400" rx="8" fill="#F2F3F3" stroke="#545B64" stroke-width="2"/>
+  <text x="50" y="130" class="t" font-size="17" font-weight="700">Management (or delegated admin) account</text>
+  <text x="50" y="150" class="mu" font-size="13">where `ebs-orphans` runs: laptop, CI job, or scheduled task</text>
+
+  <rect x="50" y="170" width="380" height="70" rx="6" fill="#FFFFFF" stroke="#E7157B" stroke-width="2"/>
+  <text x="66" y="196" class="t" font-size="15" font-weight="700">AWS Organizations</text>
+  <text x="66" y="220" class="mono">ListAccounts (ACTIVE only) · OU scope</text>
+
+  <rect x="50" y="255" width="380" height="70" rx="6" fill="#FFFFFF" stroke="#DD344C" stroke-width="2"/>
+  <text x="66" y="281" class="t" font-size="15" font-weight="700">AWS STS</text>
+  <text x="66" y="305" class="mono">AssumeRole + ExternalId, 1 per account</text>
+
+  <rect x="50" y="340" width="380" height="140" rx="6" fill="#FFFFFF" stroke="#232F3E" stroke-width="2"/>
+  <text x="66" y="366" class="t" font-size="15" font-weight="700">ebs-orphans scan</text>
+  <text x="66" y="390" class="mono">ThreadPool: account x region pairs</text>
+  <text x="66" y="410" class="mono">filter status=available, age &gt;= N days</text>
+  <text x="66" y="430" class="mono">price table -&gt; $/month per volume</text>
+  <text x="66" y="450" class="mono">errors collected, never fatal</text>
+  <text x="66" y="470" class="mono">exit 0 OK · 3 partial</text>
+
+  <!-- ===== Member accounts ===== -->
+  <rect x="560" y="100" width="420" height="400" rx="8" fill="#FFFFFF" stroke="#545B64" stroke-width="2"/>
+  <text x="580" y="130" class="t" font-size="17" font-weight="700">Member accounts (every enabled region)</text>
+  <text x="580" y="150" class="mu" font-size="13">role EbsOrphanFinder, deployed with a StackSet</text>
+
+  <rect x="580" y="170" width="180" height="140" rx="6" fill="#FDF3E7" stroke="#ED7100" stroke-width="2"/>
+  <text x="596" y="196" class="t" font-size="15" font-weight="700">prod / us-east-1</text>
+  <rect x="596" y="210" width="148" height="28" rx="4" fill="#E6F4EA" stroke="#1D8102"/>
+  <text x="606" y="229" class="t" font-size="13">vol: in-use  (skip)</text>
+  <rect x="596" y="244" width="148" height="28" rx="4" fill="#FDECEA" stroke="#D13212"/>
+  <text x="606" y="263" class="t" font-size="13">vol: available, 95 d</text>
+  <rect x="596" y="278" width="148" height="24" rx="4" fill="#FFF8E1" stroke="#B7791F"/>
+  <text x="606" y="295" class="t" font-size="12">available, DoNotDelete</text>
+
+  <rect x="780" y="170" width="180" height="140" rx="6" fill="#FDF3E7" stroke="#ED7100" stroke-width="2"/>
+  <text x="796" y="196" class="t" font-size="15" font-weight="700">dev / eu-west-1</text>
+  <rect x="796" y="210" width="148" height="28" rx="4" fill="#FDECEA" stroke="#D13212"/>
+  <text x="806" y="229" class="t" font-size="13">vol: available, 40 d</text>
+  <rect x="796" y="244" width="148" height="28" rx="4" fill="#E6F4EA" stroke="#1D8102"/>
+  <text x="806" y="263" class="t" font-size="13">vol: available, 3 d</text>
+  <text x="806" y="292" class="mu" font-size="12">(younger than N: skip)</text>
+
+  <rect x="580" y="330" width="380" height="150" rx="6" fill="#F2F3F3" stroke="#545B64" stroke-width="1.5"/>
+  <text x="596" y="356" class="t" font-size="15" font-weight="700">Least-privilege role</text>
+  <text x="596" y="380" class="mono">scan:  DescribeRegions, DescribeVolumes</text>
+  <text x="596" y="404" class="mono">apply: + CreateSnapshot, CreateTags</text>
+  <text x="596" y="424" class="mono">       (new snapshots only),</text>
+  <text x="596" y="444" class="mono">       DeleteVolume only if it</text>
+  <text x="596" y="464" class="mono">       has no DoNotDelete tag</text>
+
+  <!-- arrows scan -> members -->
+  <path class="solid" d="M430,290 L560,240" marker-end="url(#arrow)"/>
+  <rect x="452" y="238" width="22" height="22" rx="11" fill="#232F3E"/><text x="459" y="254" class="step">1</text>
+  <path class="dash" d="M560,300 L430,400" marker-end="url(#arrow)"/>
+  <rect x="482" y="340" width="22" height="22" rx="11" fill="#232F3E"/><text x="489" y="356" class="step">2</text>
+
+  <!-- ===== Outputs ===== -->
+  <rect x="1060" y="100" width="310" height="400" rx="8" fill="#FFFFFF" stroke="#545B64" stroke-width="2"/>
+  <text x="1080" y="130" class="t" font-size="17" font-weight="700">Outputs (reports/)</text>
+  <rect x="1080" y="150" width="270" height="56" rx="6" fill="#F2F3F3" stroke="#545B64"/>
+  <text x="1096" y="174" class="t" font-size="14" font-weight="700">.md  executive summary</text>
+  <text x="1096" y="194" class="mu" font-size="12">totals by account, region, type</text>
+  <rect x="1080" y="216" width="270" height="56" rx="6" fill="#F2F3F3" stroke="#545B64"/>
+  <text x="1096" y="240" class="t" font-size="14" font-weight="700">.csv  one row per volume</text>
+  <text x="1096" y="260" class="mu" font-size="12">for finance / spreadsheets</text>
+  <rect x="1080" y="282" width="270" height="56" rx="6" fill="#F2F3F3" stroke="#545B64"/>
+  <text x="1096" y="306" class="t" font-size="14" font-weight="700">.json  full result + errors</text>
+  <text x="1096" y="326" class="mu" font-size="12">for other tools / dashboards</text>
+  <rect x="1080" y="348" width="270" height="130" rx="6" fill="#FDECEA" stroke="#D13212" stroke-width="2"/>
+  <text x="1096" y="372" class="t" font-size="14" font-weight="700">.plan.json  (--plan)</text>
+  <text x="1096" y="394" class="mono">plan_id, generated_at</text>
+  <text x="1096" y="414" class="mono">items: volumes to delete</text>
+  <text x="1096" y="434" class="mono">excluded: protected ones</text>
+  <text x="1096" y="454" class="mono">snapshot_before_delete</text>
+  <text x="1096" y="472" class="mu" font-size="12">expires after 72 h</text>
+
+  <path class="solid" d="M240,500 C240,575 1215,575 1215,502" marker-end="url(#arrow)"/>
+  <rect x="716" y="545" width="22" height="22" rx="11" fill="#232F3E"/><text x="723" y="561" class="step">3</text>
+
+  <!-- ===== Apply flow ===== -->
+  <rect x="30" y="590" width="1340" height="240" rx="8" fill="#F2F3F3" stroke="#D13212" stroke-width="2"/>
+  <text x="50" y="620" class="t" font-size="17" font-weight="700">ebs-orphans apply PLAN  (human review in between; dry run by default)</text>
+
+  <rect x="50" y="640" width="190" height="80" rx="6" fill="#FFFFFF" stroke="#232F3E" stroke-width="1.5"/>
+  <text x="64" y="664" class="t" font-size="14" font-weight="700">4  Validate plan</text>
+  <text x="64" y="686" class="mu" font-size="12">kind + version</text>
+  <text x="64" y="704" class="mu" font-size="12">not older than 72 h</text>
+
+  <rect x="270" y="640" width="230" height="80" rx="6" fill="#FFFFFF" stroke="#232F3E" stroke-width="1.5"/>
+  <text x="284" y="664" class="t" font-size="14" font-weight="700">5  Re-check live volume</text>
+  <text x="284" y="686" class="mu" font-size="12">gone -&gt; already-gone</text>
+  <text x="284" y="704" class="mu" font-size="12">attached/resized/tagged -&gt; skip</text>
+
+  <rect x="520" y="640" width="250" height="80" rx="6" fill="#FFFFFF" stroke="#232F3E" stroke-width="1.5"/>
+  <text x="534" y="664" class="t" font-size="14" font-weight="700">6a  Dry run (default)</text>
+  <text x="534" y="686" class="mono">DryRun=True on</text>
+  <text x="534" y="704" class="mono">CreateSnapshot, DeleteVolume</text>
+
+  <rect x="790" y="640" width="260" height="80" rx="6" fill="#FFFFFF" stroke="#D13212" stroke-width="2"/>
+  <text x="804" y="664" class="t" font-size="14" font-weight="700">6b  --execute (type plan id)</text>
+  <text x="804" y="686" class="mu" font-size="12">final snapshot, tagged, waited for</text>
+  <text x="804" y="704" class="mu" font-size="12">(reused if a prior run made it)</text>
+
+  <rect x="1080" y="640" width="270" height="80" rx="6" fill="#FFFFFF" stroke="#D13212" stroke-width="2"/>
+  <text x="1094" y="664" class="t" font-size="14" font-weight="700">7  DeleteVolume</text>
+  <text x="1094" y="686" class="mu" font-size="12">results.json: one outcome per volume</text>
+  <text x="1094" y="704" class="mu" font-size="12">re-run = safe (idempotent)</text>
+
+  <path class="solid" d="M240,680 L270,680" marker-end="url(#arrow)"/>
+  <path class="solid" d="M500,680 L520,680" marker-end="url(#arrow)"/>
+  <path class="red" d="M770,680 L790,680" marker-end="url(#arrowRed)"/>
+  <path class="red" d="M1050,680 L1080,680" marker-end="url(#arrowRed)"/>
+
+  <text x="50" y="760" class="t" font-size="14" font-weight="700">Legend</text>
+  <line x1="50" y1="785" x2="100" y2="785" class="solid"/><text x="110" y="790" class="mu" font-size="13">API call / data flow</text>
+  <line x1="280" y1="785" x2="330" y2="785" class="dash"/><text x="340" y="790" class="mu" font-size="13">results returned</text>
+  <line x1="500" y1="785" x2="550" y2="785" class="red"/><text x="560" y="790" class="mu" font-size="13">changes resources (only with --execute)</text>
+  <text x="50" y="815" class="mu" font-size="13">1 assume role per account · 2 DescribeVolumes(status=available) per region · 3 write reports and optional plan</text>
+</svg>
