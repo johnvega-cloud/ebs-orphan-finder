@@ -1,0 +1,88 @@
+# CloudFormation template for the role ebs-orphan-finder assumes in each member account.
+# Deploy it to the whole organization with a service-managed StackSet:
+#
+#   aws cloudformation create-stack-set --stack-set-name ebs-orphan-finder-role \
+#     --template-body file://deploy/member-role.yaml \
+#     --permission-model SERVICE_MANAGED \
+#     --auto-deployment Enabled=true,RetainStacksOnAccountRemoval=false \
+#     --capabilities CAPABILITY_NAMED_IAM \
+#     --parameters ParameterKey=TrustedAccountId,ParameterValue=<scanner account> \
+#                  ParameterKey=ExternalId,ParameterValue=<random string>
+#   aws cloudformation create-stack-instances --stack-set-name ebs-orphan-finder-role \
+#     --deployment-targets OrganizationalUnitIds=<root or OU id> --regions us-east-1
+#
+# StackSets do not deploy to the management account: there the tool uses its own credentials.
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Cross-account role for ebs-orphan-finder (scan, and optionally cleanup).
+
+Parameters:
+  TrustedAccountId:
+    Type: String
+    AllowedPattern: "^[0-9]{12}$"
+    Description: Account where the scanner runs (management or a delegated tooling account).
+  ExternalId:
+    Type: String
+    MinLength: 8
+    NoEcho: true
+    Description: Shared secret the scanner passes as sts:ExternalId.
+  AllowCleanup:
+    Type: String
+    AllowedValues: ["false", "true"]
+    Default: "false"
+    Description: Also grant snapshot + delete permissions (needed only for `apply --execute`).
+
+Conditions:
+  Cleanup: !Equals [!Ref AllowCleanup, "true"]
+
+Resources:
+  Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: EbsOrphanFinder
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: !Sub "arn:${AWS::Partition}:iam::${TrustedAccountId}:root"
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                sts:ExternalId: !Ref ExternalId
+      Policies:
+        - PolicyName: scan
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [ec2:DescribeRegions, ec2:DescribeVolumes, ec2:DescribeSnapshots]
+                Resource: "*"
+        - !If
+          - Cleanup
+          - PolicyName: cleanup
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action: ec2:CreateSnapshot
+                  Resource:
+                    - !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:volume/*"
+                    - !Sub "arn:${AWS::Partition}:ec2:*::snapshot/*"
+                - Effect: Allow
+                  Action: ec2:CreateTags
+                  Resource: !Sub "arn:${AWS::Partition}:ec2:*::snapshot/*"
+                  Condition:
+                    StringEquals:
+                      ec2:CreateAction: CreateSnapshot
+                - Effect: Allow
+                  Action: ec2:DeleteVolume
+                  Resource: !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:volume/*"
+                  Condition:
+                    "Null":
+                      aws:ResourceTag/DoNotDelete: "true"
+          - !Ref AWS::NoValue
+
+Outputs:
+  RoleArn:
+    Value: !GetAtt Role.Arn
