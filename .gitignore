@@ -1,0 +1,22 @@
+# --- Python / tooling ---
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# --- Reports and plans: they contain account IDs and resource IDs. Never commit. ---
+reports/
+*.plan.json
+
+# --- OS / editors ---
+.DS_Store
+.idea/
+.vscode/
