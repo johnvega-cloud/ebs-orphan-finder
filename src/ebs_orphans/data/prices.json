@@ -1,0 +1,17 @@
+{
+  "_meta": {
+    "description": "EBS on-demand list prices in USD per month. Estimates: they ignore Savings Plans, EDP discounts and taxes. Unattached volumes do no I/O, so per-I/O charges (magnetic 'standard') are not modelled.",
+    "source": "https://aws.amazon.com/ebs/pricing/",
+    "retrieved": "2026-10",
+    "fallback_region": "us-east-1"
+  },
+  "us-east-1": {
+    "gp3": {"gb_month": 0.08, "iops_month": 0.005, "free_iops": 3000, "throughput_month": 0.04, "free_throughput": 125},
+    "gp2": {"gb_month": 0.10},
+    "io1": {"gb_month": 0.125, "iops_month": 0.065},
+    "io2": {"gb_month": 0.125, "iops_tiers": [[32000, 0.065], [64000, 0.0455], [null, 0.03185]]},
+    "st1": {"gb_month": 0.045},
+    "sc1": {"gb_month": 0.015},
+    "standard": {"gb_month": 0.05}
+  }
+}
