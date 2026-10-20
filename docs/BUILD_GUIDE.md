@@ -30,6 +30,7 @@ The commit history follows these steps, so `git log --reverse` shows the same pa
 | 10 | `iam/`, `deploy/member-role.yaml` | Least-privilege policies, StackSet role | The tool's permission needs are only known once the code is final. |
 | 11 | `.github/workflows/ci.yml` | ruff, mypy, cfn-lint, pytest on 3.11 + 3.13 | Turns steps 2–10 into a gate: `main` only accepts changes that pass. |
 | 12 | `README.md`, `docs/`, `examples/` | Usage, safety, limitations, diagram, sample report | Documents what was actually built, so it is written last. |
+| 13 | — | Run against a real account: scan, plan, dry-run, protected re-check, execute, re-run, member role with `ExternalId` | moto does not enforce IAM or model slow endpoints. The real run proved the role's least-privilege policies and found the regional-timeout bug (see decisions). Results in the README. |
 
 ### Key decisions made in step 0
 
@@ -40,13 +41,14 @@ The commit history follows these steps, so `git log --reverse` shows the same pa
 | Reaching accounts | One `AssumeRole` per account, cached; the home account uses its own credentials | The management account has no `OrganizationAccountAccessRole` of its own. One assume per account, not per region, keeps STS calls low. |
 | Which regions | `DescribeRegions` **per account** | Opt-in regions are enabled per account. A list taken from the management account can miss regions or include ones a member has not enabled. |
 | Concurrency | `ThreadPoolExecutor` over account x region pairs, adaptive retries | The work waits on I/O, so threads fit. Adaptive retry mode slows down by itself when AWS throttles. |
+| Timeouts | 5 s connect, 30 s read, 5 attempts | Added after a real scan stalled ~20 min on one unreachable regional endpoint (botocore defaults: 60 s connect, retried). Now a dead region fails in under a minute and shows up as a scan error. |
 | Failure model | Collect per-account/per-region errors, keep going, exit `3` | One locked-down account must not hide the other 49. The report lists what was **not** scanned. |
 | Pricing | Versioned JSON table, `--price-file` overrides, `price_source` on every volume | Reviewable in a PR, works offline and in tests, no Pricing API permissions. The report flags fallback prices instead of hiding them. |
 | Delete or not | The scan never deletes. A **plan file** is the hand-off. | Separates "what we found" from "what we agreed to delete". The plan can be attached to a change ticket. |
 | Apply safety | Plan expiry, live re-check, DryRun by default, typed confirmation, final snapshot, IAM tag condition | Every layer covers a different failure: stale data, a re-attached volume, missing permissions, a slip of the finger, needing the data later, a bug in the tool. |
 | Idempotency of apply | Snapshot looked up by tags `source-volume` + `plan-id` before creating one; `NotFound` = `already-gone` | An interrupted run can be repeated without duplicate snapshots or errors. |
 | CLI library | `argparse` (standard library) | One runtime dependency (`boto3`) is easier to audit and install on a locked-down admin host. |
-| Test strategy | moto for the whole flow, a tiny fake client for IAM denials and waiter timeouts | moto models multi-account AssumeRole and EC2 well, but it does not enforce IAM. |
+| Test strategy | moto for the whole flow, a tiny fake client for IAM denials and waiter timeouts, plus one manual run in a real account | moto models multi-account AssumeRole and EC2 well, but it does not enforce IAM or simulate slow endpoints. |
 
 ---
 
