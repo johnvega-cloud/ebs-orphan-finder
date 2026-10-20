@@ -234,7 +234,7 @@ with a management account and two member accounts in memory: AssumeRole across
 accounts, volumes in several regions, attached and protected volumes, plan
 apply with snapshots, re-runs and interrupted runs. Paths moto cannot produce
 (IAM denials in dry run, snapshot waiter timeouts) use a small fake EC2 client.
-No test touches real AWS.
+None of these automated tests touches real AWS; the manual real-account run is below.
 
 ### Tested against real AWS (2026-10-20, single account, us-east-1)
 
