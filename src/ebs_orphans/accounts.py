@@ -15,8 +15,18 @@ log = logging.getLogger(__name__)
 
 # Adaptive retries back off on throttling. Org-wide scans fan out to many
 # account/region pairs at once, so throttling is expected, not exceptional.
+# Explicit timeouts: botocore's defaults (60 s connect, retried up to
+# max_attempts) let one unreachable regional endpoint stall a whole scan for
+# many minutes. With these, a dead region fails in well under a minute and is
+# reported as a scan error while every other region completes.
+CONNECT_TIMEOUT_S = 5
+READ_TIMEOUT_S = 30
+MAX_ATTEMPTS = 5
+
 BOTO_CONFIG = Config(
-    retries={"max_attempts": 10, "mode": "adaptive"},
+    connect_timeout=CONNECT_TIMEOUT_S,
+    read_timeout=READ_TIMEOUT_S,
+    retries={"max_attempts": MAX_ATTEMPTS, "mode": "adaptive"},
     user_agent_extra="ebs-orphan-finder",
 )
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import boto3
 import pytest
 
-from ebs_orphans.accounts import SessionFactory, filter_accounts, list_org_accounts
+from ebs_orphans.accounts import BOTO_CONFIG, SessionFactory, filter_accounts, list_org_accounts
 from ebs_orphans.models import Account
 from tests.conftest import REGION, Org
 
@@ -90,3 +90,12 @@ def test_reads_either_state_field(monkeypatch: pytest.MonkeyPatch, state_key: st
 
     accounts = list_org_accounts(FakeSession())  # type: ignore[arg-type]
     assert [a.id for a in accounts] == ["1"]
+
+
+def test_boto_config_bounds_time_spent_on_a_dead_endpoint() -> None:
+    # botocore defaults (60 s connect x 10 attempts) stalled a real scan for minutes.
+    assert BOTO_CONFIG.connect_timeout <= 10
+    assert BOTO_CONFIG.read_timeout <= 60
+    # botocore renames the key in place to total_max_attempts once a client is built.
+    retries = BOTO_CONFIG.retries
+    assert retries.get("max_attempts", retries.get("total_max_attempts", 99)) <= 6
