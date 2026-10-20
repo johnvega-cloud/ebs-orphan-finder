@@ -16,6 +16,13 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: Cross-account role for ebs-orphan-finder (scan, and optionally cleanup).
 
 Parameters:
+  RoleName:
+    Type: String
+    Default: EbsOrphanFinder
+    AllowedPattern: "^[A-Za-z0-9+=,.@_-]{1,64}$"
+    Description: >-
+      Name of the role. Change it where IAM policies only allow role names matching a
+      pattern; pass the same value to `ebs-orphans --role-name`.
   TrustedAccountId:
     Type: String
     AllowedPattern: "^[0-9]{12}$"
@@ -38,7 +45,7 @@ Resources:
   Role:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: EbsOrphanFinder
+      RoleName: !Ref RoleName
       MaxSessionDuration: 3600
       AssumeRolePolicyDocument:
         Version: "2012-10-17"

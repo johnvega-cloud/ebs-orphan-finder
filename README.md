@@ -79,6 +79,8 @@ sample report.
   - **Recommended:** `EbsOrphanFinder`, from [`deploy/member-role.yaml`](deploy/member-role.yaml)
     deployed with a service-managed StackSet (instructions in the file). It is
     read-only unless you set `AllowCleanup=true`, and it requires an `ExternalId`.
+    If your IAM policies only allow role names matching a pattern, set the
+    `RoleName` parameter and pass the same name to `--role-name`.
   - **Quick start:** `OrganizationAccountAccessRole` (the default `--role-name`)
     exists in accounts created by Organizations, but it is full admin. Use it to
     try the tool, not for a scheduled job.
@@ -224,7 +226,7 @@ A scheduled job can alert on `3` without parsing the report.
 pip install -e ".[dev]"
 ruff check . && ruff format --check .
 mypy
-pytest                       # 67 tests, coverage gate 90%
+pytest                       # 69 tests, coverage gate 90%
 ```
 
 The tests use [moto](https://github.com/getmoto/moto) to fake an organization
@@ -233,6 +235,20 @@ accounts, volumes in several regions, attached and protected volumes, plan
 apply with snapshots, re-runs and interrupted runs. Paths moto cannot produce
 (IAM denials in dry run, snapshot waiter timeouts) use a small fake EC2 client.
 No test touches real AWS.
+
+### Tested against real AWS (2026-10-20, single account, us-east-1)
+
+| Check | Result |
+|---|---|
+| `scan` over all 28 enabled regions | 27 scanned; `me-south-1` (endpoint unreachable) reported as a scan error, exit 3. 37 s with the explicit timeouts (it took ~20 min with botocore defaults, which led to the fix) |
+| Plan with one orphan and one `DoNotDelete` volume | orphan listed, protected one excluded, cost $0.08/month (1 GiB gp3) |
+| `apply` without `--execute` | `would-delete`, nothing changed |
+| `DoNotDelete` added after the plan | `skipped-protected` at apply time |
+| `apply --execute` | encrypted, tagged snapshot first, then delete |
+| Same plan again | `already-gone`, no second snapshot |
+| `member-role.yaml` deployed, `AllowCleanup=true` | AssumeRole denied without/with a wrong `ExternalId`; scan + snapshot + delete work with the role's permissions only; IAM denies `DeleteVolume` on a `DoNotDelete` volume even if the tool tried |
+
+Not tested for real: scanning a second, active member account (the test organization had none).
 
 CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs ruff, mypy
 (strict), cfn-lint on the StackSet template, and pytest on Python 3.11 and
