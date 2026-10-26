@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import boto3
 import pytest
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, ConnectTimeoutError
 
 from ebs_orphans import discovery
 from ebs_orphans.accounts import list_org_accounts
@@ -129,6 +129,31 @@ def test_region_failure_is_recorded_not_fatal(
     assert len(result.volumes) == 1
     assert result.regions_scanned == 1
     assert [(e.region, e.code) for e in result.errors] == [(OTHER_REGION, "UnauthorizedOperation")]
+
+
+def test_unreachable_region_is_recorded_not_fatal(
+    org: Org, prices: PriceBook, later: datetime, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Seen for real: me-south-1's EC2 endpoint stopped answering (connect timeout).
+    org.volume(org.management)
+    real = discovery.find_orphans
+
+    def dead_region(session, account, region, *args, **kwargs):  # type: ignore[no-untyped-def]
+        if region == OTHER_REGION:
+            raise ConnectTimeoutError(endpoint_url=f"https://ec2.{region}.amazonaws.com/")
+        return real(session, account, region, *args, **kwargs)
+
+    monkeypatch.setattr(discovery, "find_orphans", dead_region)
+    result = scan(
+        [Account(org.management)],
+        org.factory.for_account,
+        30,
+        prices,
+        regions=[REGION, OTHER_REGION],
+        now=later,
+    )
+    assert len(result.volumes) == 1
+    assert [(e.region, e.code) for e in result.errors] == [(OTHER_REGION, "ConnectTimeoutError")]
 
 
 def test_enabled_regions_skips_not_opted_in(org: Org) -> None:
